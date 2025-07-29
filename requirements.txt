@@ -1,0 +1,5 @@
+langchain_groq
+dotenv
+chromadb
+sentence-transformers
+langchain
