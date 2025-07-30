@@ -1,111 +1,60 @@
-# run python -m venv venv
-# run venv\Scripts\activate
-# pip install -r requirements.txt
+import streamlit as st
+from chatbot import chat
+import datetime
 
-import warnings
-warnings.filterwarnings("ignore", category=FutureWarning, module="torch.nn.modules.module")
-
-from langchain_groq import ChatGroq
-from chromadb.utils import embedding_functions
-import chromadb
-from langchain.schema import SystemMessage, HumanMessage, AIMessage
-import os
-from dotenv import load_dotenv
-import uuid  # Add import for generating unique IDs
-load_dotenv()
-
-
-# Initialize embeddings
-embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
-
-
-# Initialize persistent ChromaDB client and collection
-client = chromadb.PersistentClient(path="./chroma_db_store")
-
-collection = client.get_or_create_collection(
-    name="chatbot-history",
-    embedding_function=embedding_function
+# Page configuration
+st.set_page_config(
+    page_title="Smart AI Chatbot",
+    page_icon="🤖",
+    layout="centered"
 )
 
+# Sidebar info
+with st.sidebar:
+    st.title("🧠 Smart Chatbot")
+    st.markdown("Built with:")
+    st.markdown("- `LangChain` + `Groq (Gemma)`")
+    st.markdown("- `ChromaDB` for memory")
+    st.markdown("- `Streamlit` for UI")
+    st.markdown("---")
+    st.markdown("Ask anything. The bot will remember previous messages to help contextualize your question.")
+    st.caption("© 2025 SmartBot Inc.")
 
+# Title & subtitle
+st.title("🤖 Smart Context-Aware Chatbot")
+st.subheader("An AI that remembers what you say 🔁")
 
-# Initialize Groq LLM (ensure GROQ_API_KEY is set in environment)
-llm = ChatGroq(
-    api_key=os.getenv("GROQ_API_KEY2"),
-    model="gemma2-9b-it"  # Using Mixtral model
-)
+# Initialize session state
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
+# Display chat history
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-def retrieve_context(query: str, k: int = 5) -> list:
-    """
-    Retrieve up to k most relevant conversation turns for the given query.
-    Returns a list of HumanMessage and AIMessage.
-    """
-    print(f"Retrieving context for query: {query}")
-    # Query the collection
-    results = collection.query(
-        query_texts=[query],
-        n_results=k
-    )
-    docs = results["documents"][0]
-    metas = results["metadatas"][0]
+# Chat input
+query = st.chat_input("Type your message...")
 
-    history = []
-    for text, meta in zip(docs, metas):
-        role = meta.get("role", "user")
-        if role == "assistant":
-            history.append(AIMessage(content=text))
-        else:
-            history.append(HumanMessage(content=text))
-    return history
+if query:
+    try:
+        # Show user message
+        with st.chat_message("user"):
+            st.markdown(query)
+        st.session_state.messages.append({"role": "user", "content": query})
 
-prompt = """
-    you are a helpful assistant. Answer the user's questions based on the provided context.
-    If the context is insufficient, politely inform the user that you don't have enough information.
-    Always provide a concise and relevant answer.
-    If the user asks for information that is not in the context, say "I don't know" or "I don't have that information."
-    If the user asks for a summary, provide a brief summary of the conversation so far.
-    If the user asks for a list of previous questions, provide a numbered list of the last 5 questions.
-    If the user asks for a list of previous answers, provide a numbered list of the last 5 answers.
-    If the user asks for a list of previous turns, provide a numbered list of the last 5 conversation turns.
+        # Call backend and display response
+        with st.spinner("Thinking..."):
+            response = chat(query)
 
-"""
+        with st.chat_message("assistant"):
+            st.markdown(response)
+        st.session_state.messages.append({"role": "assistant", "content": response})
 
-def chat(query: str) -> str:
-    """
-    Process a user query, retrieve context, generate a response, and store the turn.
-    """
-    print(f"Processing user query: {query}")
-    # Retrieve previous context
-    context_msgs = retrieve_context(query)
+    except Exception as e:
+        st.error("⚠️ Something went wrong. Please try again.")
+        st.exception(e)
 
-    # Build messages for LLM
-    system_msg = SystemMessage(content=prompt)
-    human_msg = HumanMessage(content=query)
-    messages = [system_msg] + context_msgs + [human_msg]
-
-    # Get assistant response
-    response = llm.invoke(messages)
-    answer = response.content
-
-    # Generate unique IDs for the documents
-    query_id = str(uuid.uuid4())
-    answer_id = str(uuid.uuid4())
-
-    # Persist user query and assistant answer
-    collection.add(
-        ids=[query_id, answer_id],
-        documents=[query, answer],
-        metadatas=[{"role": "user"}, {"role": "assistant"}]
-    )
-
-    return answer
-
-if __name__ == "__main__":
-    print("Chatbot initialized. Type 'exit' to quit.")
-    while True:
-        user_input = input("You: ")
-        if user_input.lower() in ("exit", "quit"):
-            break
-        reply = chat(user_input)
-        print(f"Assistant: {reply}")
+# Optional footer or message
+st.markdown("<hr style='margin-top:2rem;margin-bottom:1rem;'>", unsafe_allow_html=True)
+st.caption(f"🕒 {datetime.datetime.now().strftime('%B %d, %Y — %I:%M %p')}")

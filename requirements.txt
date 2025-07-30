@@ -3,3 +3,5 @@ dotenv
 chromadb
 sentence-transformers
 langchain
+streamlit
+tf-keras
