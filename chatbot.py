@@ -1,6 +1,7 @@
 # run python -m venv venv
 # run venv\Scripts\activate
 # pip install -r requirements.txt
+# streamlit run chatbot.py
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="torch.nn.modules.module")
