@@ -1,5 +1,5 @@
 import streamlit as st
-from chatbot import chat
+from chatbot import chat, reset_memory
 import datetime
 
 # Page configuration
@@ -9,22 +9,30 @@ st.set_page_config(
     layout="centered"
 )
 
-# Sidebar info
+# Sidebar
 with st.sidebar:
+    
+    if st.button("🧹 Confirm Reset Memory"):
+        reset_memory()
+        st.session_state.messages = []
+        st.success("✅ Memory has been reset.")
+    st.markdown("---")   
     st.title("🧠 Smart Chatbot")
     st.markdown("Built with:")
-    st.markdown("- `LangChain` + `Groq (Gemma)`")
+    st.markdown("- `LangChain` + `ChatGroq`")
     st.markdown("- `ChromaDB` for memory")
     st.markdown("- `Streamlit` for UI")
     st.markdown("---")
-    st.markdown("Ask anything. The bot will remember previous messages to help contextualize your question.")
-    st.caption("© 2025 SmartBot Inc.")
+    st.markdown("Ask anything. The bot remembers previous messages.")
+    st.markdown("Powered by [Groq](https://groq.com) and [ChromaDB](https://www.trychroma.com)")
 
-# Title & subtitle
+
+
+# Title and subtitle
 st.title("🤖 Smart Context-Aware Chatbot")
 st.subheader("An AI that remembers what you say 🔁")
 
-# Initialize session state
+# Session state initialization
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -33,17 +41,15 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Chat input
+# Input & response
 query = st.chat_input("Type your message...")
 
 if query:
     try:
-        # Show user message
         with st.chat_message("user"):
             st.markdown(query)
         st.session_state.messages.append({"role": "user", "content": query})
 
-        # Call backend and display response
         with st.spinner("Thinking..."):
             response = chat(query)
 
@@ -52,9 +58,9 @@ if query:
         st.session_state.messages.append({"role": "assistant", "content": response})
 
     except Exception as e:
-        st.error("⚠️ Something went wrong. Please try again.")
+        st.error("⚠️ Something went wrong.")
         st.exception(e)
 
-# Optional footer or message
+# Footer timestamp
 st.markdown("<hr style='margin-top:2rem;margin-bottom:1rem;'>", unsafe_allow_html=True)
 st.caption(f"🕒 {datetime.datetime.now().strftime('%B %d, %Y — %I:%M %p')}")
